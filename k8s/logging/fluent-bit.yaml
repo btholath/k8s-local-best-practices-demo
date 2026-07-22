@@ -1,0 +1,126 @@
+# Item 18: centralized logging - Fluent Bit collects container logs from
+# every node and ships them to Elasticsearch.
+#
+# NOTE ON LOCAL TESTING: a full Elasticsearch cluster is heavy for a
+# laptop-local kind cluster (needs real memory, vm.max_map_count tuning,
+# etc). For local testing, the easiest path is:
+#   helm repo add elastic https://helm.elastic.co
+#   helm install es elastic/elasticsearch -n logging --create-namespace \
+#     --set replicas=1 --set minimumMasterNodes=1 \
+#     --set resources.requests.memory=512Mi --set resources.limits.memory=1Gi
+# Then point fluent-bit's OUTPUT Host below at "es-elasticsearch-master.logging".
+# For a much lighter local alternative, swap the Elasticsearch output for
+# stdout, or ship to Loki instead (smaller footprint, same idea).
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: logging
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-config
+  namespace: logging
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         5
+        Log_Level     info
+        Daemon        off
+        Parsers_File  parsers.conf
+
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/*.log
+        Parser            docker
+        Tag               kube.*
+        Refresh_Interval  5
+
+    [FILTER]
+        Name                kubernetes
+        Match               kube.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Merge_Log           On
+
+    [OUTPUT]
+        Name            es
+        Match           *
+        Host            es-elasticsearch-master.logging
+        Port            9200
+        Logstash_Format On
+        Logstash_Prefix demo-logs
+        Retry_Limit     False
+
+  parsers.conf: |
+    [PARSER]
+        Name        docker
+        Format      json
+        Time_Key    time
+        Time_Format %Y-%m-%dT%H:%M:%S.%L
+        Time_Keep   On
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluent-bit
+  namespace: logging
+  labels:
+    app: fluent-bit
+spec:
+  selector:
+    matchLabels: { app: fluent-bit }
+  template:
+    metadata:
+      labels: { app: fluent-bit }
+    spec:
+      serviceAccountName: fluent-bit
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: fluent-bit
+          image: fluent/fluent-bit:3.1
+          resources:
+            requests: { cpu: "50m", memory: "64Mi" }
+            limits: { cpu: "200m", memory: "128Mi" }
+          volumeMounts:
+            - name: varlog
+              mountPath: /var/log
+              readOnly: true
+            - name: config
+              mountPath: /fluent-bit/etc/
+      volumes:
+        - name: varlog
+          hostPath:
+            path: /var/log
+        - name: config
+          configMap:
+            name: fluent-bit-config
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fluent-bit
+  namespace: logging
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fluent-bit-read
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces", "pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: fluent-bit-read
+subjects:
+  - kind: ServiceAccount
+    name: fluent-bit
+    namespace: logging
+roleRef:
+  kind: ClusterRole
+  name: fluent-bit-read
+  apiGroup: rbac.authorization.k8s.io

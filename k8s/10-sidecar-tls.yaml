@@ -1,0 +1,88 @@
+# Item 12: sidecar pattern - an Nginx sidecar container handles HTTPS
+# termination inside the pod, forwarding plaintext to the app container
+# over localhost. Useful when the app itself has no TLS support, or you
+# want TLS termination policy centralized in one place across many apps.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-sidecar-config
+  namespace: demo-dev
+data:
+  nginx.conf: |
+    events {}
+    http {
+      server {
+        listen 8443 ssl;
+        ssl_certificate     /etc/nginx/tls/tls.crt;
+        ssl_certificate_key /etc/nginx/tls/tls.key;
+
+        location / {
+          proxy_pass http://127.0.0.1:8000;
+          proxy_set_header Host $host;
+          proxy_set_header X-Forwarded-Proto https;
+        }
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-with-tls-sidecar
+  namespace: demo-dev
+  labels:
+    app: backend-tls
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend-tls
+  template:
+    metadata:
+      labels:
+        app: backend-tls
+    spec:
+      containers:
+        # Main application container - plain HTTP, unaware of TLS at all
+        - name: backend
+          image: demo-backend:local
+          ports:
+            - containerPort: 8000
+          resources:
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits: { cpu: "500m", memory: "256Mi" }
+
+        # Sidecar: terminates TLS, proxies to the app container over
+        # localhost within the same pod network namespace
+        - name: nginx-tls-sidecar
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 8443
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: tls-certs
+              mountPath: /etc/nginx/tls
+              readOnly: true
+          resources:
+            requests: { cpu: "50m", memory: "32Mi" }
+            limits: { cpu: "100m", memory: "64Mi" }
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: nginx-sidecar-config
+        - name: tls-certs
+          secret:
+            secretName: demo-tls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-tls
+  namespace: demo-dev
+spec:
+  selector:
+    app: backend-tls
+  ports:
+    - port: 8443
+      targetPort: 8443

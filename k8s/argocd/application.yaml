@@ -1,0 +1,37 @@
+# Item 10: GitOps-managed deployment via ArgoCD.
+#
+# This assumes:
+#   1. ArgoCD is installed in the cluster (see SETUP-WSL.md).
+#   2. This entire project has been pushed to a git repo you control -
+#      replace REPO_URL below with that repo's URL.
+#   3. ArgoCD watches the helm/umbrella path and auto-syncs on every
+#      commit - this IS the GitOps workflow: git is the single source
+#      of truth, ArgoCD continuously reconciles the live cluster state
+#      to match what's committed.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: demo-app
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/YOUR_USERNAME/k8s-demo.git   # <-- replace
+    targetRevision: main
+    path: helm/umbrella
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-dev.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: demo-dev
+
+  syncPolicy:
+    automated:
+      prune: true      # remove resources deleted from git
+      selfHeal: true    # revert manual kubectl edits back to git state
+    syncOptions:
+      - CreateNamespace=true

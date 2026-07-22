@@ -1,0 +1,10 @@
+apiVersion: v2
+name: demo-app
+description: Umbrella chart composing the backend and frontend microservices
+type: application
+version: 0.1.0
+appVersion: "1.0"
+# backend/ and frontend/ subcharts live directly under charts/ and are
+# auto-discovered by Helm - no need to declare them here as remote
+# dependencies since they're local, version-controlled alongside this
+# umbrella chart.

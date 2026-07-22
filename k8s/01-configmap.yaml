@@ -1,0 +1,10 @@
+# Item 7: separate configuration from application code via ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: demo-dev
+data:
+  APP_ENV: "dev"
+  GREETING: "Hello from backend (dev)"
+  APP_VERSION: "v1"

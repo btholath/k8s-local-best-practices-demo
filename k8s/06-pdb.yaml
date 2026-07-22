@@ -1,0 +1,14 @@
+# Item 8: PodDisruptionBudget - guarantees at least 2 backend pods stay
+# up during voluntary disruptions (node drains, cluster upgrades,
+# `kubectl drain`). Does NOT protect against involuntary disruption
+# (e.g. a node crashing).
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend-pdb
+  namespace: demo-dev
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: backend

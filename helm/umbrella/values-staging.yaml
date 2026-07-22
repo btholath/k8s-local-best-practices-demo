@@ -1,0 +1,21 @@
+backend:
+  replicaCount: 2
+  env:
+    APP_ENV: staging
+    GREETING: "Hello from backend (staging)"
+    APP_VERSION: v1
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 75
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+frontend:
+  replicaCount: 2
+  ingress:
+    enabled: true
+    host: demo-staging.local
+    tlsSecretName: demo-tls-staging

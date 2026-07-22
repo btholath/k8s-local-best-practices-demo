@@ -1,0 +1,101 @@
+# Item 13: Blue-Green Deployment.
+#
+# Two full, independent Deployments run side by side (both at full
+# replica count, unlike canary's partial split). The Service's selector
+# is switched atomically from one color to the other - this is a
+# zero-downtime, instant cutover, and instant rollback (just flip the
+# selector back).
+#
+# ROLLOUT PROCEDURE:
+#   1. Both blue (live, receiving traffic) and green (new version) are
+#      deployed. Only blue is currently selected by the Service.
+#   2. Test green directly via its own Service (backend-green, below)
+#      or a port-forward, without touching production traffic.
+#   3. Cut over:
+#        kubectl patch service backend-live -n demo-dev \
+#          -p '{"spec":{"selector":{"app":"backend","color":"green"}}}'
+#   4. If something's wrong, roll back instantly:
+#        kubectl patch service backend-live -n demo-dev \
+#          -p '{"spec":{"selector":{"app":"backend","color":"blue"}}}'
+#   5. Once green is confirmed stable, scale down / delete the blue
+#      Deployment and rename green->blue for the next cycle.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-blue
+  namespace: demo-dev
+  labels: { app: backend, color: blue }
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: backend, color: blue }
+  template:
+    metadata:
+      labels: { app: backend, color: blue }
+    spec:
+      containers:
+        - name: backend
+          image: demo-backend:local
+          env: [{ name: APP_VERSION, value: "v1" }]
+          ports: [{ containerPort: 8000 }]
+          resources:
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits: { cpu: "500m", memory: "256Mi" }
+          readinessProbe:
+            httpGet: { path: /readyz, port: 8000 }
+            initialDelaySeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-green
+  namespace: demo-dev
+  labels: { app: backend, color: green }
+spec:
+  replicas: 3
+  selector:
+    matchLabels: { app: backend, color: green }
+  template:
+    metadata:
+      labels: { app: backend, color: green }
+    spec:
+      containers:
+        - name: backend
+          image: demo-backend:local
+          env: [{ name: APP_VERSION, value: "v2" }]
+          ports: [{ containerPort: 8000 }]
+          resources:
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits: { cpu: "500m", memory: "256Mi" }
+          readinessProbe:
+            httpGet: { path: /readyz, port: 8000 }
+            initialDelaySeconds: 5
+---
+# Production traffic - selector gets flipped between blue/green
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-live
+  namespace: demo-dev
+spec:
+  selector:
+    app: backend
+    color: blue   # <- flip this (or patch it) to cut over
+  ports:
+    - port: 8000
+      targetPort: 8000
+---
+# Direct access to green for pre-cutover testing
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-green-preview
+  namespace: demo-dev
+spec:
+  selector:
+    app: backend
+    color: green
+  ports:
+    - port: 8000
+      targetPort: 8000

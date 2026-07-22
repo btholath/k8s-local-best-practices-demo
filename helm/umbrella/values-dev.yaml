@@ -1,0 +1,15 @@
+backend:
+  replicaCount: 1
+  env:
+    APP_ENV: dev
+    GREETING: "Hello from backend (dev)"
+    APP_VERSION: v1
+  autoscaling:
+    enabled: false
+  podDisruptionBudget:
+    enabled: false
+
+frontend:
+  replicaCount: 1
+  ingress:
+    enabled: false

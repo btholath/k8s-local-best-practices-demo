@@ -1,0 +1,41 @@
+# Item 3: Horizontal Pod Autoscaling on CPU + a custom application metric.
+#
+# The CPU part works out of the box on any cluster with metrics-server
+# installed (see SETUP-WSL.md). The custom-metric part (requests-per-second
+# via demo_requests_total from /metrics) requires a metrics adapter such as
+# Prometheus Adapter or KEDA feeding the `external.metrics.k8s.io` or
+# `custom.metrics.k8s.io` API — that's more infra than a from-scratch local
+# demo can reasonably spin up, so it's included here for completeness and
+# commented with what you'd need to actually activate it.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+  namespace: demo-dev
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    # --- Custom metric example (requires Prometheus Adapter or KEDA) ---
+    # - type: Pods
+    #   pods:
+    #     metric:
+    #       name: demo_requests_total
+    #     target:
+    #       type: AverageValue
+    #       averageValue: "50"
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0

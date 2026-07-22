@@ -1,0 +1,27 @@
+backend:
+  replicaCount: 4
+  env:
+    APP_ENV: prod
+    GREETING: "Hello from backend (prod)"
+    APP_VERSION: v1
+  resources:
+    requests: { cpu: 200m, memory: 256Mi }
+    limits: { cpu: 1000m, memory: 512Mi }
+  autoscaling:
+    enabled: true
+    minReplicas: 4
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 60
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 3
+
+frontend:
+  replicaCount: 3
+  resources:
+    requests: { cpu: 150m, memory: 192Mi }
+    limits: { cpu: 500m, memory: 384Mi }
+  ingress:
+    enabled: true
+    host: demo.example.com
+    tlsSecretName: demo-tls-prod

@@ -1,0 +1,38 @@
+# Item 5: Ingress with TLS termination + path-based routing.
+# Requires the ingress-nginx controller installed in the cluster (see
+# SETUP-WSL.md) and a TLS secret named "demo-tls" — for local testing
+# generate a self-signed cert:
+#   openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+#     -keyout tls.key -out tls.crt -subj "/CN=demo.local"
+#   kubectl create secret tls demo-tls --cert=tls.crt --key=tls.key -n demo-dev
+# Then add "127.0.0.1 demo.local" to /etc/hosts (WSL) to test by name.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: demo-ingress
+  namespace: demo-dev
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: ["demo.local"]
+      secretName: demo-tls
+  rules:
+    - host: demo.local
+      http:
+        paths:
+          - path: /api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8000
+          - path: /(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 5000

@@ -1,0 +1,97 @@
+# Item 4: Canary Deployment using Kubernetes-native primitives only
+# (no Argo Rollouts / Flagger CRDs required).
+#
+# HOW THIS ACHIEVES "CANARY" NATIVELY:
+# The Service selects on the shared label `app: backend` only (not on
+# `track`), so it load-balances across BOTH Deployments below. Traffic
+# split is approximate and controlled purely by *replica ratio*:
+#   stable (5 replicas) : canary (1 replica) ≈ 83% : 17% of traffic
+# This is coarser than a real percentage-based canary (Argo Rollouts /
+# Flagger / a service mesh give you exact traffic weights and automated
+# promotion/rollback based on metrics) but requires zero extra
+# controllers - it works on any vanilla cluster.
+#
+# Promote the canary by scaling it up and the stable version down, then
+# eventually deleting canary-deployment.yaml's canary block once fully
+# rolled out.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-stable
+  namespace: demo-dev
+  labels:
+    app: backend
+    track: stable
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: backend
+      track: stable
+  template:
+    metadata:
+      labels:
+        app: backend
+        track: stable
+    spec:
+      containers:
+        - name: backend
+          image: demo-backend:local
+          env:
+            - name: APP_VERSION
+              value: "v1"
+          ports: [{ containerPort: 8000 }]
+          resources:
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits: { cpu: "500m", memory: "256Mi" }
+          readinessProbe:
+            httpGet: { path: /readyz, port: 8000 }
+            initialDelaySeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-canary
+  namespace: demo-dev
+  labels:
+    app: backend
+    track: canary
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+      track: canary
+  template:
+    metadata:
+      labels:
+        app: backend
+        track: canary
+    spec:
+      containers:
+        - name: backend
+          image: demo-backend:local
+          env:
+            - name: APP_VERSION
+              value: "v2"
+          ports: [{ containerPort: 8000 }]
+          resources:
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits: { cpu: "500m", memory: "256Mi" }
+          readinessProbe:
+            httpGet: { path: /readyz, port: 8000 }
+            initialDelaySeconds: 5
+---
+# Selects app: backend only -> load-balances across BOTH stable + canary
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-canary-svc
+  namespace: demo-dev
+spec:
+  selector:
+    app: backend
+  ports:
+    - port: 8000
+      targetPort: 8000

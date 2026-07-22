@@ -1,0 +1,32 @@
+replicaCount: 2
+
+image:
+  repository: demo-backend
+  tag: local
+  pullPolicy: IfNotPresent
+
+env:
+  APP_ENV: dev
+  GREETING: "Hello from backend"
+  APP_VERSION: v1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+
+service:
+  port: 8000

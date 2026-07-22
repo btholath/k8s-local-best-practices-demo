@@ -1,0 +1,110 @@
+# This single Deployment demonstrates several practices at once, since
+# they all live in the same pod spec in real clusters:
+#   Item 1  - resource requests/limits
+#   Item 9  - secure container execution checklist (non-root, read-only
+#             rootfs, no privilege escalation)
+#   Item 17 - liveness/readiness probes
+#   Item 19 - pod anti-affinity across nodes
+#   Item 20 - dropped Linux capabilities + seccomp profile
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: demo-dev
+  labels:
+    app: backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+        track: stable
+    spec:
+      # --- Item 19: Pod Anti-Affinity ---
+      # "Prefer" (soft) rather than "require" (hard) so this still
+      # schedules on a single-node local kind cluster; in a real
+      # multi-node cluster this spreads replicas across nodes.
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values: [backend]
+                topologyKey: kubernetes.io/hostname
+
+      containers:
+        - name: backend
+          image: demo-backend:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+
+          envFrom:
+            - configMapRef:
+                name: backend-config
+          env:
+            - name: API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secret
+                  key: API_TOKEN
+
+          # --- Item 1: resource requests/limits ---
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+
+          # --- Item 17: liveness/readiness probes ---
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          # --- Item 9 & 20: container-level security context ---
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+
+          # readOnlyRootFilesystem needs a writable tmp dir for most apps
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+
+      # --- Item 9 & 20: pod-level security context ---
+      securityContext:
+        runAsNonRoot: true
+        fsGroup: 10001
+
+      volumes:
+        - name: tmp
+          emptyDir: {}

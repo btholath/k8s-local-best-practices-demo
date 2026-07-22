@@ -1,0 +1,28 @@
+replicaCount: 2
+
+image:
+  repository: demo-frontend
+  tag: local
+  pullPolicy: IfNotPresent
+
+env: {}
+  # Extra env vars can be added per-environment via values overlays.
+  # BACKEND_URL is set automatically in templates/deployment.yaml from
+  # the release name, so backend/frontend always find each other
+  # correctly regardless of the Helm release name used.
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 300m
+    memory: 256Mi
+
+service:
+  port: 5000
+
+ingress:
+  enabled: false
+  host: demo.local
+  tlsSecretName: demo-tls

@@ -1,0 +1,66 @@
+Kubernetes Best Practices for Application Deployment
+Kubernetes Best Practices for Application Deployment — focusing on deploying reliable, scalable, secure, and maintainable applications on Kubernetes clusters.
+
+
+
+
+
+"Create a Kubernetes deployment manifest enforcing resource requests and limits for CPU and memory for all application pods."
+
+
+"Write a Helm chart to standardize the deployment of microservices with environment-specific overrides (example: dev, staging, prod)."
+
+
+"Generate a Kubernetes configuration that enables Horizontal Pod Autoscaling (HPA) based on CPU and custom application metrics."
+
+
+"Develop a deployment strategy using Canary Deployments with Kubernetes native rollout controllers."
+
+
+"Create a Kubernetes Ingress resource with TLS termination and path-based routing for multi-service web applications."
+
+
+"Write a Kubernetes Secret management plan for securely injecting environment variables into application containers."
+
+
+"Generate a deployment manifest using Kubernetes Deployment and ConfigMap to separate configuration from application code."
+
+
+"Create a Kubernetes PodDisruptionBudget (PDB) to maintain high availability during node maintenance and scaling events."
+
+
+"Write a Kubernetes best practices checklist for ensuring secure container execution (example: non-root user, read-only root filesystem)."
+
+
+"Develop a CI/CD workflow using ArgoCD to continuously deploy GitOps-managed Kubernetes manifests into production clusters."
+
+
+"Generate a deployment plan using Kubernetes StatefulSets for applications requiring stable network identities and persistent storage."
+
+
+"Create a sidecar pattern example where an Nginx sidecar container handles HTTPS termination inside the application pod."
+
+
+"Write a rollout plan using Kubernetes Blue-Green Deployment strategies to minimize downtime during application upgrades."
+
+
+"Develop a Helm umbrella chart structure to manage a complex application composed of multiple dependent microservices."
+
+
+"Generate a Kubernetes namespace isolation strategy for separating workloads based on environments and teams."
+
+
+"Create Kubernetes NetworkPolicies to restrict pod-to-pod communication within the same namespace based on application roles."
+
+
+"Write a Kubernetes liveness and readiness probe configuration for a Java Spring Boot REST API deployment."
+
+
+"Develop a centralized logging architecture collecting Kubernetes pod logs with Fluent Bit and shipping them to Elasticsearch."
+
+
+"Generate a Kubernetes Pod Anti-Affinity rule ensuring replicas of a service are distributed across multiple nodes for resilience."
+
+
+"Create a security context configuration in Kubernetes enforcing dropped Linux capabilities and seccomp profiles for all application pods."
+

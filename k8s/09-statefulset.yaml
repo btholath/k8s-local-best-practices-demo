@@ -1,0 +1,59 @@
+# Item 11: StatefulSet for stable network identity + persistent storage.
+# Redis is used here purely as a familiar, lightweight example workload.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: demo-dev
+spec:
+  serviceName: redis
+  replicas: 3
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+              name: redis
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 512Mi
+---
+# Headless service - gives each pod a stable DNS name like
+# redis-0.redis.demo-dev.svc.cluster.local
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: demo-dev
+spec:
+  clusterIP: None
+  selector:
+    app: redis
+  ports:
+    - port: 6379
